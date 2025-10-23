@@ -1,1 +1,0 @@
-# Integrated-Veterinary-Clinic-Information-and-Operations-Management
