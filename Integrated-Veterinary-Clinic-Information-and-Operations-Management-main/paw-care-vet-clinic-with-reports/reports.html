@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports - Paw Care</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#199e9e}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+  <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt=""><div><h1 class="text-2xl font-semibold">Paw Care Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+  <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+</header>
+
+<div class="flex flex-1">
+  <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Reports</h2>
+    <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <div class="bg-white rounded-2xl shadow-soft p-8">
+      <div class="flex items-end gap-4 flex-wrap">
+        <div>
+          <label class="text-sm text-gray-600">Period</label>
+          <select id="period" class="border border-gray-300 rounded-md p-3 w-56">
+            <option value="day">Today</option>
+            <option value="week">This Week</option>
+            <option value="month" selected>This Month</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div id="customDates" class="hidden items-end gap-3">
+          <label class="text-sm text-gray-600">From
+            <input id="from" type="date" class="border border-gray-300 rounded-md p-3">
+          </label>
+          <label class="text-sm text-gray-600">To
+            <input id="to" type="date" class="border border-gray-300 rounded-md p-3">
+          </label>
+        </div>
+        <button id="runBtn" class="bg-[var(--soft-teal)] text-white px-6 py-3 rounded-md hover:brightness-95">Run</button>
+        <button id="printBtn" class="border px-6 py-3 rounded-md hover:bg-gray-50">Print PDF</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <div class="rounded-xl border p-5">
+          <div class="text-sm text-gray-500">Appointments Done</div>
+          <div id="kpiAppt" class="text-3xl font-semibold mt-1">0</div>
+        </div>
+        <div class="rounded-xl border p-5">
+          <div class="text-sm text-gray-500">Prescriptions Dispensed</div>
+          <div id="kpiRx" class="text-3xl font-semibold mt-1">0</div>
+        </div>
+        <div class="rounded-xl border p-5">
+          <div class="text-sm text-gray-500">New Pets Added</div>
+          <div id="kpiPets" class="text-3xl font-semibold mt-1">0</div>
+        </div>
+      </div>
+
+      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">Event History</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead><tr class="text-left text-gray-600 border-b">
+            <th class="py-3">Timestamp</th><th class="py-3">Type</th><th class="py-3">Message</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  guard('reports');
+  const role = getRole();
+  renderSidebar(document.getElementById('sidebarNav'), role, 'reports.html');
+
+  const periodSel = document.getElementById('period');
+  const custom = document.getElementById('customDates');
+  const rows = document.getElementById('rows');
+
+  periodSel.addEventListener('change', () => {
+    custom.classList.toggle('hidden', periodSel.value !== 'custom');
+  });
+
+  async function run(){
+    const period = periodSel.value;
+    let data;
+    if(period==='custom'){
+      const from = document.getElementById('from').value;
+      const to = document.getElementById('to').value;
+      if(!from || !to){ alert('Select from/to'); return; }
+      data = await repoSummary('custom', from, to);
+    } else {
+      data = await repoSummary(period);
+    }
+    document.getElementById('kpiAppt').innerText = data.appointmentsDone;
+    document.getElementById('kpiRx').innerText = data.prescriptionsDispensed;
+    document.getElementById('kpiPets').innerText = data.petsAdded;
+    rows.innerHTML = data.events.map(e => `
+      <tr class="border-b">
+        <td class="py-3">${e.ts}</td>
+        <td class="py-3">${e.type}</td>
+        <td class="py-3">${e.message}</td>
+      </tr>`).join('') || `<tr><td class="py-3" colspan="3">No activity.</td></tr>`;
+    window._lastReport = data;
+  }
+  document.getElementById('runBtn').onclick = run;
+
+  document.getElementById('printBtn').onclick = ()=>{
+    const { jsPDF } = window.jspdf;
+    const r = window._lastReport;
+    const doc = new jsPDF();
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text('Paw Care Veterinary Clinic — Operations Summary', 105, 16, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text(`Period: ${r?.period || 'N/A'}   From: ${r?.from || ''}   To: ${r?.to || ''}`, 105, 24, {align:'center'});
+    doc.line(15, 28, 195, 28);
+    doc.setFontSize(12);
+    doc.text(`Appointments Done: ${r?.appointmentsDone ?? 0}`, 20, 40);
+    doc.text(`Prescriptions Dispensed: ${r?.prescriptionsDispensed ?? 0}`, 20, 48);
+    doc.text(`New Pets Added: ${r?.petsAdded ?? 0}`, 20, 56);
+    let y = 72;
+    doc.setFont('helvetica','bold'); doc.text('Events:', 20, y); y+=6;
+    doc.setFont('helvetica','normal');
+    (r?.events || []).slice(0, 30).forEach(ev=>{
+      const line = `${ev.ts}  |  ${ev.type}  |  ${ev.message}`;
+      doc.text(line.substring(0, 110), 20, y); y += 6;
+      if(y > 280){ doc.addPage(); y = 20; }
+    });
+    doc.save(`PawCare_Summary_${(r?.from||'')}_${(r?.to||'')}.pdf`);
+  };
+
+  // default load
+  run();
+</script>
+</body>
+</html>

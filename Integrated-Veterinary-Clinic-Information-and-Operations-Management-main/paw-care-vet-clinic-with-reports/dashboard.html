@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - Paw Care</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    :root{--soft-teal:#199e9e}
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5">
+      <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt="">
+      <div>
+        <h1 class="text-2xl font-semibold">Paw Care Veterinary Clinic</h1>
+        <p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p>
+      </div>
+    </div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 id="roleTitle" class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">ROLE</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-8">
+      <div class="bg-white p-8 rounded-2xl shadow-soft">
+        <h2 id="welcomeTitle" class="text-2xl font-semibold text-gray-800 mb-2">Welcome!</h2>
+        <p id="welcomeDesc" class="text-gray-600 mb-6">Choose one of the quick actions below.</p>
+
+        <div id="quickActions" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <div class="mt-8">
+          <h3 class="text-lg font-semibold text-gray-700 mb-3">Recent activity</h3>
+          <!-- The "Clear recent activity" button is injected by renderRecent(...) -->
+          <div id="recentList" class="space-y-2 text-gray-700"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    ensureLoggedIn();
+    const role=getRole();
+    roleTitle.innerText = role.toUpperCase() + ' Dashboard';
+    welcomeTitle.innerText = `Welcome, ${role[0].toUpperCase()+role.slice(1)}!`;
+    welcomeDesc.innerText = ROLE_COPY[role].welcome;
+
+    renderSidebar(document.getElementById('sidebarNav'), role, 'dashboard.html');
+    renderQuickActions(document.getElementById('quickActions'), role);
+    renderRecent(document.getElementById('recentList')); // injects the "Clear recent activity" button
+  </script>
+</body>
+</html>
