@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pet Records - Paw Care</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#199e9e}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Paw Care Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet Records</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-8">
+        <div class="flex items-center justify-between gap-4 mb-6">
+          <div><h3 class="text-2xl font-semibold text-gray-800">Pet Records</h3><p class="text-gray-600 text-sm">Add, view, edit or delete pet records. Click “View” to open the profile.</p></div>
+          <div class="flex items-center gap-3">
+            <input id="petSearch" class="border border-gray-300 rounded-md p-3 w-64" placeholder="Search by name or owner">
+            <button id="addBtn" class="bg-[var(--soft-teal)] text-white px-5 py-3 rounded-md hover:brightness-95">Add Record</button>
+          </div>
+        </div>
+
+        <table class="w-full border-collapse">
+          <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Pet Name</th><th class="py-3">Species</th><th class="py-3">Breed</th><th class="py-3">Owner</th><th class="py-3">Actions</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('pet-records');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'pet-records.html');
+
+    const rows=document.getElementById('rows');
+    const q=document.getElementById('petSearch');
+    const modalRoot=document.getElementById('modalRoot');
+    let lastRawFile=null;
+
+    async function render(){
+      const term=(q.value||'').toLowerCase();
+      const pets=await repoListPets();
+      const filtered = pets.filter(p=>JSON.stringify(p).toLowerCase().includes(term));
+      rows.innerHTML=filtered.map(p=>`
+        <tr class="border-b">
+          <td class="py-3">${p.name||''}</td>
+          <td class="py-3">${p.species||''}</td>
+          <td class="py-3">${p.breed||''}</td>
+          <td class="py-3">${p.owner||''}</td>
+          <td class="py-3">
+            <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="viewPet(${p.id})">View</button>
+            <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="openForm(${p.id})">Edit</button>
+            <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="delPet(${p.id})">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+    function viewPet(id){ location.href=`pet-profile.html?id=${id}`; }
+    async function delPet(id){ if(confirm('Delete this pet?')){ await repoDeletePet(id); render(); } }
+
+    async function openForm(id){
+      const editing = id ? await repoGetPet(id) : null;
+      let currentPhoto = editing?.photo || null;
+      lastRawFile = null;
+
+      modalRoot.innerHTML=`
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl w-full max-w-3xl p-6">
+            <h3 class="text-xl font-semibold mb-4">${editing?'Edit':'Add'} Pet</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${field('name','Pet Name',editing?.name)}
+              ${selectField('species','Species',editing?.species||'Canine',['Canine','Feline'])}
+              ${field('breed','Breed',editing?.breed)}
+              ${selectField('gender','Gender',editing?.gender||'Female',['Female','Male'])}
+              ${field('age','Age',editing?.age,'number')}
+              ${field('microchip','Microchip',editing?.microchip)}
+              ${field('owner','Owner',editing?.owner)}
+              ${field('address','Home Address',editing?.address)}
+              ${selectField('federation','Federation',editing?.federation||'N/A',['FCCI','FCPI','N/A'])}
+              <div class="col-span-1 md:col-span-2">
+                <div class="text-sm text-gray-600 mb-1">Photo</div>
+                <div class="flex items-center gap-4">
+                  <div id="photoPreview" class="w-28 h-28 rounded-lg bg-gray-100 border flex items-center justify-center text-gray-400 overflow-hidden">
+                    ${currentPhoto?`<img src="${currentPhoto}" class="w-full h-full object-cover">`:'No Photo'}
+                  </div>
+                  <input id="photoInput" type="file" accept="image/*" class="border border-gray-300 rounded-md p-2">
+                </div>
+              </div>
+            </div>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="savePet(${editing?.id||''})">Save</button>
+            </div>
+          </div>
+        </div>`;
+
+      function field(id,label,val='',type='text'){return `<label class="text-sm text-gray-600">${label}<input id="f_${id}" type="${type}" value="${val??''}" class="w-full border mt-1 border-gray-300 rounded-md p-3"></label>`;}
+      function selectField(id,label,selected,options){const opts=options.map(o=>`<option ${o===selected?'selected':''}>${o}</option>`).join('');return `<label class="text-sm text-gray-600">${label}<select id="f_${id}" class="w-full border mt-1 border-gray-300 rounded-md p-3">${opts}</select></label>`;}
+      function gv(k){return document.getElementById('f_'+k).value;}
+
+      const photoInput=document.getElementById('photoInput');
+      const photoPreview=document.getElementById('photoPreview');
+      photoInput?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; try{ lastRawFile=f; currentPhoto = window.USE_API ? URL.createObjectURL(f) : await fileToDataURL(f); photoPreview.innerHTML=`<img src="${currentPhoto}" class="w-full h-full object-cover">`; }catch{ alert('Could not read image'); }});
+
+      window.closeModal=()=>modalRoot.innerHTML='';
+      window.savePet=async(editId)=>{
+        const base={name:gv('name'),species:gv('species'),breed:gv('breed'),gender:gv('gender'),age:Number(gv('age')||0),microchip:gv('microchip'),owner:gv('owner'),address:gv('address'),federation:gv('federation')||'N/A',photo: window.USE_API ? null : currentPhoto};
+        if(editId){
+          const prev=await repoGetPet(editId);
+          await repoUpdatePet({...base,id:Number(editId),procedures:prev?.procedures||[]});
+          if(window.USE_API && lastRawFile){ await Api.pets.uploadPhoto(editId, lastRawFile); }
+        } else {
+          await repoAddPet({...base,procedures:[]}, window.USE_API ? lastRawFile : null);
+        }
+        closeModal(); render();
+        const pets = await repoListPets();
+        const newId = editId ? editId : pets[pets.length-1].id;
+        viewPet(newId);
+      };
+    }
+
+    document.getElementById('addBtn').onclick=()=>openForm();
+    q.addEventListener('input',()=>render());
+    render();
+  </script>
+</body>
+</html>
