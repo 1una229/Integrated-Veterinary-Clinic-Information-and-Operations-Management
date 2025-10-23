@@ -98,16 +98,22 @@
         </div>`;
       const petSel=document.getElementById('f_pet');
       const ownerInp=document.getElementById('f_owner');
-      function syncOwner(){ ownerInp.value = ownerForPet(Number(petSel.value)); }
-      petSel.addEventListener('change', syncOwner); syncOwner();
+      async function syncOwner(){ 
+        const owner = await ownerForPet(Number(petSel.value));
+        ownerInp.value = owner;
+      }
+      petSel.addEventListener('change', syncOwner); 
+      syncOwner();
     }
     function closeModal(){ modalRoot.innerHTML=''; }
     async function saveRx(){
       const petId=Number(document.getElementById('f_pet').value);
+      const pet = await petName(petId);
+      const owner = await ownerForPet(petId);
       await repoCreateRx({
         petId,
-        pet:petName(petId),
-        owner:ownerForPet(petId),
+        pet: pet,
+        owner: owner,
         drug:document.getElementById('f_drug').value,
         dosage:document.getElementById('f_dosage').value,
         directions:document.getElementById('f_dirs').value,
@@ -119,10 +125,10 @@
     }
     async function dispense(id){ await repoDispenseRx(id); render(); }
 
-    function printRx(id){
-      const list = (window.db ? db().rx : []);
+    async function printRx(id){
+      const list = await repoListRx();
       const r = list.find(x=>x.id===id);
-      if(!r){ alert('For API mode, implement server-generated PDF or cache locally.'); return; }
+      if(!r){ alert('Prescription not found.'); return; }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       doc.setFont('helvetica','bold'); doc.setFontSize(16);

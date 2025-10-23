@@ -38,19 +38,26 @@ window.Api = {
   },
   appts: {
     list:    ()    => ApiHttp("/appointments", { token: Api.token() }),
+    get:     (id)  => ApiHttp(`/appointments/${id}`, { token: Api.token() }),
     create:  (a)   => ApiHttp("/appointments", { method:"POST", body:a, token: Api.token() }),
+    update:  (a)   => ApiHttp(`/appointments/${a.id}`, { method:"PUT", body:a, token: Api.token() }),
     approve: (id)  => ApiHttp(`/appointments/${id}/approve`, { method:"POST", token: Api.token() }),
     done:    (id)  => ApiHttp(`/appointments/${id}/done`,    { method:"POST", token: Api.token() }),
     remove:  (id)  => ApiHttp(`/appointments/${id}`, { method:"DELETE", token: Api.token() })
   },
   rx: {
     list:    ()   => ApiHttp("/prescriptions", { token: Api.token() }),
+    get:     (id) => ApiHttp(`/prescriptions/${id}`, { token: Api.token() }),
     create:  (r)  => ApiHttp("/prescriptions", { method:"POST", body:r, token: Api.token() }),
-    dispense:(id) => ApiHttp(`/prescriptions/${id}/dispense`, { method:"POST", token: Api.token() })
+    update:  (r)  => ApiHttp(`/prescriptions/${r.id}`, { method:"PUT", body:r, token: Api.token() }),
+    dispense:(id) => ApiHttp(`/prescriptions/${id}/dispense`, { method:"POST", token: Api.token() }),
+    remove:  (id) => ApiHttp(`/prescriptions/${id}`, { method:"DELETE", token: Api.token() })
   },
   users: {
     list:   ()   => ApiHttp("/users", { token: Api.token() }),
+    get:    (id) => ApiHttp(`/users/${id}`, { token: Api.token() }),
     create: (u)  => ApiHttp("/users", { method:"POST", body:u, token: Api.token() }),
+    update: (u)  => ApiHttp(`/users/${u.id}`, { method:"PUT", body:u, token: Api.token() }),
     remove: (id) => ApiHttp(`/users/${id}`, { method:"DELETE", token: Api.token() })
   },
   reports: {
