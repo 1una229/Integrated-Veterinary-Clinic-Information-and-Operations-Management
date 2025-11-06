@@ -112,7 +112,7 @@
       errorBox.classList.add('hidden');
     };
 
-    document.getElementById('loginBtn').onclick = ()=>{
+    function doLogin(){
       const u = document.getElementById('username').value.trim();
       const p = document.getElementById('password').value;
       const res = window.tryLogin(u, p, selectedRole);
@@ -122,7 +122,15 @@
         errorBox.textContent = res.msg;
         errorBox.classList.remove('hidden');
       }
-    };
+    }
+    document.getElementById('loginBtn').onclick = doLogin;
+    // Enter to login on inputs
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        doLogin();
+      }
+    });
   </script>
 </body>
 </html>

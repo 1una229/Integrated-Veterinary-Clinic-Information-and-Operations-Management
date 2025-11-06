@@ -59,14 +59,25 @@
         </div>
       </div>
 
-      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">Event History</h3>
+      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">New Patients</h3>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead><tr class="text-left text-gray-600 border-b">
-            <th class="py-3">Timestamp</th><th class="py-3">Type</th><th class="py-3">Message</th>
+            <th class="py-3">Added At</th><th class="py-3">Pet Name</th><th class="py-3">Owner Name</th>
           </tr></thead>
-          <tbody id="rows"></tbody>
+          <tbody id="rowsNew"></tbody>
         </table>
+      </div>
+
+      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">Finished Appointments</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead><tr class="text-left text-gray-600 border-b">
+            <th class="py-3">Code</th><th class="py-3">Date</th><th class="py-3">Time</th><th class="py-3">Vet</th><th class="py-3">Pet</th><th class="py-3">Owner</th><th class="py-3">Procedure Done</th><th class="py-3">Cost (₱)</th>
+          </tr></thead>
+          <tbody id="rowsFinished"></tbody>
+        </table>
+        <div class="text-right mt-3 font-semibold">Total Profit: ₱ <span id="totalProfit">0</span></div>
       </div>
     </div>
   </main>
@@ -81,7 +92,8 @@
 
   const periodSel = document.getElementById('period');
   const custom = document.getElementById('customDates');
-  const rows = document.getElementById('rows');
+  const rowsNew = document.getElementById('rowsNew');
+  const rowsFinished = document.getElementById('rowsFinished');
 
   periodSel.addEventListener('change', () => {
     custom.classList.toggle('hidden', periodSel.value !== 'custom');
@@ -101,12 +113,24 @@
     document.getElementById('kpiAppt').innerText = data.appointmentsDone;
     document.getElementById('kpiRx').innerText = data.prescriptionsDispensed;
     document.getElementById('kpiPets').innerText = data.petsAdded;
-    rows.innerHTML = data.events.map(e => `
+    rowsNew.innerHTML = (data.newPatients||[]).map(n => `
       <tr class="border-b">
-        <td class="py-3">${e.ts}</td>
-        <td class="py-3">${e.type}</td>
-        <td class="py-3">${e.message}</td>
-      </tr>`).join('') || `<tr><td class="py-3" colspan="3">No activity.</td></tr>`;
+        <td class="py-3">${n.addedAt?.slice(0,10)||''}</td>
+        <td class="py-3">${n.petName||''}</td>
+        <td class="py-3">${n.ownerName||''}</td>
+      </tr>`).join('') || `<tr><td class="py-3" colspan="3">No new patients in period.</td></tr>`;
+    rowsFinished.innerHTML = (data.finished||[]).map(f => `
+      <tr class="border-b">
+        <td class="py-3">${f.code||''}</td>
+        <td class="py-3">${f.date||''}</td>
+        <td class="py-3">${f.time||''}</td>
+        <td class="py-3">${f.vet||''}</td>
+        <td class="py-3">${f.pet||''}</td>
+        <td class="py-3">${f.owner||''}</td>
+        <td class="py-3">${(f.procedures||[]).join(', ')}</td>
+        <td class="py-3">${Number(f.cost||0).toLocaleString()}</td>
+      </tr>`).join('') || `<tr><td class="py-3" colspan="8">No finished appointments in period.</td></tr>`;
+    document.getElementById('totalProfit').innerText = Number(data.totalProfit||0).toLocaleString();
     window._lastReport = data;
   }
   document.getElementById('runBtn').onclick = run;
@@ -124,14 +148,16 @@
     doc.text(`Appointments Done: ${r?.appointmentsDone ?? 0}`, 20, 40);
     doc.text(`Prescriptions Dispensed: ${r?.prescriptionsDispensed ?? 0}`, 20, 48);
     doc.text(`New Pets Added: ${r?.petsAdded ?? 0}`, 20, 56);
+
     let y = 72;
-    doc.setFont('helvetica','bold'); doc.text('Events:', 20, y); y+=6;
+    doc.setFont('helvetica','bold'); doc.text('New Patients', 20, y); y+=6;
     doc.setFont('helvetica','normal');
-    (r?.events || []).slice(0, 30).forEach(ev=>{
-      const line = `${ev.ts}  |  ${ev.type}  |  ${ev.message}`;
-      doc.text(line.substring(0, 110), 20, y); y += 6;
-      if(y > 280){ doc.addPage(); y = 20; }
-    });
+    (r?.newPatients||[]).forEach(n=>{ const line=`${(n.addedAt||'').slice(0,10)} | ${n.petName||''} | ${n.ownerName||''}`; doc.text(line.substring(0,110),20,y); y+=6; if(y>280){doc.addPage(); y=20;} });
+
+    y+=4; doc.setFont('helvetica','bold'); doc.text('Finished Appointments', 20, y); y+=6; doc.setFont('helvetica','normal');
+    (r?.finished||[]).forEach(f=>{ const line=`${f.code||''} | ${f.date||''} ${f.time||''} | ${f.vet||''} | ${f.pet||''} | ${f.owner||''} | ${(f.procedures||[]).join(', ')} | ₱${Number(f.cost||0).toLocaleString()}`; doc.text(line.substring(0,160),20,y); y+=6; if(y>280){doc.addPage(); y=20;} });
+    y+=6; doc.setFont('helvetica','bold'); doc.text(`Total Profit: ₱${Number(r?.totalProfit||0).toLocaleString()}`, 20, y);
+
     doc.save(`PawCare_Summary_${(r?.from||'')}_${(r?.to||'')}.pdf`);
   };
 

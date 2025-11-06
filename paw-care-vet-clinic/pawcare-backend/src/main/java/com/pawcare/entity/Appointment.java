@@ -14,6 +14,7 @@ public class Appointment {
     private Long petId;
 
     private String owner;
+    private String code;
     private LocalDate date;
     private String time;
     private String vet;
@@ -47,6 +48,9 @@ public class Appointment {
 
     public String getOwner() { return owner; }
     public void setOwner(String owner) { this.owner = owner; }
+
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
 
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }

@@ -36,7 +36,7 @@ const CONFIG = {
   admin:        ["dashboard","pet-records","appointments","prescriptions","reports","manage-users"],
   vet:          ["dashboard","pet-records","appointments","prescriptions","reports"],
   receptionist: ["dashboard","pet-records","appointments"],
-  pharmacist:   ["dashboard","pet-records","prescriptions"]
+  pharmacist:   ["prescriptions"]
 };
 
 const LABEL = {
@@ -56,6 +56,7 @@ const ROLE_COPY = {
 };
 
 window.getRole = function(){ return localStorage.getItem("role") || ""; };
+window.getUserName = function(){ return localStorage.getItem("userDisplayName") || ""; };
 
 window.ensureLoggedIn = function(){
   if(!localStorage.getItem("role")) location.href="index.html";
@@ -94,6 +95,25 @@ window.renderQuickActions = function(el,role){
   (map[role]||[]).forEach(btn=>el.appendChild(btn));
 };
 
+/* ===== Global Error Handler (helps on desktop builds without DevTools) ===== */
+if(!window.__pawcare_error_handler_installed){
+  window.__pawcare_error_handler_installed = true;
+  window.addEventListener('error', function(e){
+    try{
+      const msg = e?.message || 'Unknown script error';
+      console && console.error && console.error('GlobalError:', e?.error||e);
+      alert('Error: ' + msg);
+    }catch(_){/* ignore */}
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    try{
+      const reason = e && (e.reason?.message || e.reason || '').toString();
+      console && console.error && console.error('UnhandledRejection:', e?.reason||e);
+      alert('Error: ' + (reason || 'Unknown promise rejection'));
+    }catch(_){/* ignore */}
+  });
+}
+
 /* ===== Recent Activity (local only) ===== */
 const DB_KEY="pawcare_recent";
 function db(){const raw=localStorage.getItem(DB_KEY);return raw?JSON.parse(raw):{recent:[]};}
@@ -122,6 +142,88 @@ window.renderRecent=function(el){
 
 window._clearRecent=()=>{clearRecent();const el=document.getElementById("recentList");if(el)window.renderRecent(el);};
 
+/* ===== Domain Constants & Validation ===== */
+window.SPECIES_TO_BREEDS = {
+  Canine: [
+    "Aspin","Labrador","Golden Retriever","German Shepherd","Poodle","Shih Tzu","Pug","Beagle","Husky","Dachshund","Chihuahua","Rottweiler","French Bulldog","Corgi","Border Collie"
+  ],
+  Feline: [
+    "Puspin","Persian","Siamese","Maine Coon","British Shorthair","American Shorthair","Ragdoll","Scottish Fold","Bengal","Sphynx","Russian Blue","Norwegian Forest","Burmese","Abyssinian","Manx"
+  ]
+};
+
+window.validatePhone = function(phone){
+  const cleaned = (phone||"").replace(/[^0-9+\-()\s]/g,"");
+  return cleaned.length >= 7;
+};
+
+window.validateEmail = function(email){
+  if(!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+/* ===== Procedure Catalog & Prices (PHP) ===== */
+window.PROCEDURE_CATALOG = {
+  'Consultation & Check-up': [
+    { name:'Consultation Fee', price:350, medications:'', dosage:'', directions:'' },
+    { name:'After 9:00 PM', price:500, medications:'', dosage:'', directions:'' },
+    { name:'Emergency Fee', price:800, medications:'', dosage:'', directions:'' },
+    { name:'Follow-Up', price:250, medications:'', dosage:'', directions:'' },
+    { name:'Pick-up & Delivery Service', price:300, medications:'', dosage:'', directions:'' },
+    { name:'Confinement 1st Day', price:1200, medications:'', dosage:'', directions:'' },
+    { name:'Succeeding Days', price:1000, medications:'', dosage:'', directions:'' }
+  ],
+  'Vaccine & Deworming': [
+    { name:'Feline 4 in 1', price:1000, medications:'Feline 4-in-1 Vaccine', dosage:'as indicated', directions:'Follow schedule' },
+    { name:'Canine 5 in 1', price:1000, medications:'Canine 5-in-1 Vaccine', dosage:'as indicated', directions:'Follow schedule' },
+    { name:'Canine 6 in 1', price:1000, medications:'Canine 6-in-1 Vaccine', dosage:'as indicated', directions:'Follow schedule' },
+    { name:'Canine 8 in 1', price:1200, medications:'Canine 8-in-1 Vaccine', dosage:'as indicated', directions:'Follow schedule' },
+    { name:'Kennel Cough Vaccine', price:500, medications:'KC Vaccine', dosage:'as indicated', directions:'Follow schedule' },
+    { name:'Anti-Rabies', price:350, medications:'Anti-Rabies Vaccine', dosage:'as indicated', directions:'Annual booster' },
+    { name:'Deworming Canine', price:250, medications:'Anthelmintic', dosage:'per kg', directions:'Repeat as advised' },
+    { name:'Deworming Feline', price:200, medications:'Anthelmintic', dosage:'per kg', directions:'Repeat as advised' }
+  ],
+  'Laboratory Tests': [
+    { name:'Complete Blood Count (CBC)', price:550 },
+    { name:'Comprehensive Blood Chemistry', price:3550 },
+    { name:'Chemistry 24 Panel', price:2950 },
+    { name:'Chemistry 10 Panel', price:2250 },
+    { name:'X-ray', price:700 },
+    { name:'Ultrasound OB', price:800 },
+    { name:'Ultrasound', price:800 },
+    { name:'Incubator', price:1000 },
+    { name:'2D ECHO', price:2500 },
+    { name:'ECG', price:1500 },
+    { name:'PCR Test', price:3500 },
+    { name:'Rivalta Test', price:350 },
+    { name:'Urinalysis', price:400 },
+    { name:'Fecalysis', price:350 },
+    { name:'Immunofluorescence Assay Test', price:1400 },
+    { name:'Ear Smear Test', price:300 },
+    { name:'Oxygen Chamber', price:1500 },
+    { name:'Nebulization Treatment', price:250 },
+    { name:'Pet iChip Standard', price:500 },
+    { name:'Laser Therapy', price:1500 },
+    { name:'Dental Service', price:1500 }
+  ],
+  'Rapid Tests': [
+    { name:'Feline Panleukopenia Virus Drop Test', price:800 },
+    { name:'Feline Herpes Virus Drop Test', price:800 },
+    { name:'FIV/FeLV Test', price:1100 },
+    { name:'Canine Distemper Virus Drop Test', price:800 },
+    { name:'Canine Parvo Virus & Corona Virus Drop Test', price:800 },
+    { name:'4-in-1 Test', price:1100 },
+    { name:'Giardia Drop Test', price:800 }
+  ],
+  'Surgical Service': [ { name:'Surgical Procedures', price:0 } ],
+  'Spaying & Castration': [
+    { name:'Feline Spaying (Female)', price:8000 },
+    { name:'Feline Castration (Male)', price:6000 },
+    { name:'Canine Spaying (Female)', price:14000 },
+    { name:'Canine Castration (Male)', price:12000 }
+  ]
+};
+
 /* ===== Guard ===== */
 window.guard=function(pageKey){
   window.ensureLoggedIn();
@@ -138,11 +240,48 @@ window.petName = async function(id) {
 
 window.ownerForPet = async function(id) {
   const pet = await repoGetPet(id);
-  return pet ? pet.owner : "Unknown Owner";
+  if(!pet) return "Unknown Owner";
+  if (pet.owner) return pet.owner;
+  if (pet.ownerId){ const o = await repoGetOwner(pet.ownerId); return o? o.fullName : "Unknown Owner"; }
+  return "Unknown Owner";
 };
 
 /* ===== Local Storage Repository Functions ===== */
 // These functions provide local storage functionality when USE_API is false
+
+// Owner repository functions
+window.repoListOwners = async function(){
+  const data = localStorage.getItem('pawcare_owners');
+  return data ? JSON.parse(data) : [];
+};
+
+window.repoSearchOwners = async function(term){
+  const t = (term||'').toLowerCase();
+  const list = await repoListOwners();
+  return list.filter(o => [o.fullName,o.phone,o.email].filter(Boolean).join(' ').toLowerCase().includes(t));
+};
+
+window.repoGetOwner = async function(id){
+  const list = await repoListOwners();
+  return list.find(o=>o.id==id)||null;
+};
+
+window.repoAddOwner = async function(owner){
+  const list = await repoListOwners();
+  const newId = list.length>0 ? Math.max(...list.map(o=>o.id))+1 : 1;
+  const toSave = { id:newId, fullName:owner.fullName, phone:owner.phone, email:owner.email||'', address:owner.address||'' };
+  list.push(toSave);
+  localStorage.setItem('pawcare_owners', JSON.stringify(list));
+  pushRecent(`Added owner: ${toSave.fullName}`);
+  return toSave;
+};
+
+window.repoUpdateOwner = async function(owner){
+  const list = await repoListOwners();
+  const idx = list.findIndex(o=>o.id==owner.id);
+  if(idx!==-1){ list[idx]=owner; localStorage.setItem('pawcare_owners', JSON.stringify(list)); }
+  return owner;
+};
 
 // Pet repository functions
 window.repoListPets = async function() {
@@ -220,6 +359,13 @@ window.repoGetAppt = async function(id) {
   return appts.find(a => a.id == id) || null;
 };
 
+function generateAppointmentCode(dateStr, timeStr){
+  const d = dateStr ? dateStr.replaceAll('-','') : new Date().toISOString().slice(0,10).replaceAll('-','');
+  const t = (timeStr||'').replaceAll(':','').slice(0,4);
+  const rand = Math.floor(Math.random()*900+100);
+  return `APT-${d}${t?'-'+t:''}-${rand}`;
+}
+
 window.repoAddAppt = async function(appt) {
   if (window.USE_API) {
     return await Api.appts.create(appt);
@@ -227,7 +373,9 @@ window.repoAddAppt = async function(appt) {
   const appts = await repoListAppts();
   const newId = appts.length > 0 ? Math.max(...appts.map(a => a.id)) + 1 : 1;
   appt.id = newId;
-  appt.status = 'Pending';
+  appt.code = appt.code || generateAppointmentCode(appt.date, appt.time);
+  appt.status = appt.status || 'Pending';
+  appt.vet = appt.vet || '';
   appts.push(appt);
   localStorage.setItem('pawcare_appts', JSON.stringify(appts));
   pushRecent(`Created appointment for ${appt.owner}`);
@@ -369,6 +517,8 @@ window.repoDispenseRx = async function(id) {
   if (rx) {
     rx.dispensed = true;
     rx.dispensedAt = new Date().toISOString().split('T')[0];
+    // Auto-archive once dispensed
+    rx.archived = true;
     localStorage.setItem('pawcare_rx', JSON.stringify(prescriptions));
     pushRecent(`Dispensed prescription #${id}`);
     // Trigger reports refresh if reports page is open
@@ -376,6 +526,14 @@ window.repoDispenseRx = async function(id) {
       window.run();
     }
   }
+};
+
+window.repoArchiveRx = async function(id, archived=true){
+  const prescriptions = await repoListRx();
+  const idx = prescriptions.findIndex(r=>r.id==id);
+  if(idx===-1) return;
+  prescriptions[idx].archived = archived;
+  localStorage.setItem('pawcare_rx', JSON.stringify(prescriptions));
 };
 
 window.repoCreateRx = async function(rx) {
@@ -477,6 +635,7 @@ window.repoSummary = async function(period, from, to) {
   const appointments = await repoListAppts();
   const prescriptions = await repoListRx();
   const pets = await repoListPets();
+  const owners = await repoListOwners();
   
   // Count appointments done
   const appointmentsDone = appointments.filter(a => 
@@ -511,6 +670,46 @@ window.repoSummary = async function(period, from, to) {
       message: r.text
     })));
   }
+
+  // New Patients (from recent events within range)
+  const newPatients = (recentData?.recent||[])
+    .filter(r=>r.text.startsWith('Added pet:'))
+    .filter(r=>{ const d=new Date(r.ts); return d>=start && d<=end; })
+    .map(r=>{
+      const name = r.text.replace('Added pet:','').trim();
+      const pet = pets.find(p=>p.name===name) || null;
+      const ownerName = pet?.owner || (pet?.ownerId ? (owners.find(o=>o.id==pet.ownerId)?.fullName||'') : '');
+      return { petName:name, ownerName, addedAt:new Date(r.ts).toISOString() };
+    });
+
+  // Finished Appointments with cost (join procedures on the completed date)
+  function proceduresForPetOnDate(petId, dateStr){
+    const pet = pets.find(p=>p.id==petId);
+    if(!pet||!Array.isArray(pet.procedures)) return { names:[], total:0 };
+    const list = pet.procedures.filter(pr=> (pr.performedAt||'') === dateStr);
+    const names = list.map(pr=>pr.name||pr.procedure||'');
+    const total = list.reduce((s,pr)=> s + Number(pr.cost||0), 0);
+    return { names, total };
+  }
+
+  const finished = (appointments||[])
+    .filter(a=> a.status==='Done' && a.completedAt)
+    .filter(a=>{ const d=new Date(a.completedAt); return d>=start && d<=end; })
+    .map(a=>{
+      const pr = proceduresForPetOnDate(a.petId, a.completedAt);
+      return {
+        code: a.code||'',
+        date: a.completedAt,
+        time: a.time||'',
+        vet: a.vet||'',
+        pet: a.pet||'',
+        owner: a.owner||'',
+        procedures: pr.names,
+        cost: pr.total
+      };
+    });
+
+  const totalProfit = finished.reduce((s,x)=> s + Number(x.cost||0), 0);
   
   return {
     period,
@@ -519,7 +718,10 @@ window.repoSummary = async function(period, from, to) {
     appointmentsDone,
     prescriptionsDispensed,
     petsAdded,
-    events
+    events,
+    newPatients,
+    finished,
+    totalProfit
   };
 };
 
@@ -535,14 +737,44 @@ window.repoAddProcedure = async function(petId, procedure) {
     if (!pet.procedures) {
       pet.procedures = [];
     }
-    // Ensure the procedure has a date if not provided
-    if (!procedure.date) {
-      procedure.date = new Date().toISOString().slice(0, 10);
-    }
-    pet.procedures.push(procedure);
+    const pr = {
+      name: procedure.name || procedure.procedure || '',
+      notes: procedure.notes || '',
+      medications: procedure.medications || '',
+      cost: Number(procedure.cost||0),
+      performedAt: procedure.performedAt || procedure.date || new Date().toISOString().slice(0, 10),
+      category: procedure.category || '',
+      labType: procedure.labType || ''
+    };
+    pet.procedures.push(pr);
     localStorage.setItem('pawcare_pets', JSON.stringify(pets));
-    pushRecent(`Added procedure for ${pet.name}: ${procedure.procedure}`);
+    pushRecent(`Added procedure for ${pet.name}: ${pr.name}`);
   }
+};
+
+window.repoUpdateProcedure = async function(petId, index, updated){
+  const pets = await repoListPets();
+  const pet = pets.find(p=>p.id==petId);
+  if(!pet || !pet.procedures) return;
+  const pr = {
+    name: updated.name||'',
+    notes: updated.notes||'',
+    medications: updated.medications||'',
+    cost: Number(updated.cost||0),
+    performedAt: updated.performedAt || new Date().toISOString().slice(0,10),
+    category: updated.category || '',
+    labType: updated.labType || ''
+  };
+  pet.procedures[index]=pr;
+  localStorage.setItem('pawcare_pets', JSON.stringify(pets));
+};
+
+window.repoDeleteProcedure = async function(petId, index){
+  const pets = await repoListPets();
+  const pet = pets.find(p=>p.id==petId);
+  if(!pet || !pet.procedures) return;
+  pet.procedures.splice(index,1);
+  localStorage.setItem('pawcare_pets', JSON.stringify(pets));
 };
 
 // Helper function for file to data URL conversion

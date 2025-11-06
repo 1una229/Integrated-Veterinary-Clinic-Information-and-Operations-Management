@@ -46,7 +46,12 @@
               ${row('Species',p?.species)} ${row('Breed',p?.breed)}
               ${row('Gender',p?.gender)}   ${row('Age',p?.age)}
               ${row('Microchip',p?.microchip)} ${row('Federation',p?.federation||'N/A')}
-              ${row('Owner',p?.owner)} ${row('Address',p?.address)}
+              ${row('Address',p?.address)}
+            </div>
+
+            <div class="mt-6 p-4 border rounded-xl bg-[#f7fbfb]">
+              <div class="font-semibold mb-2">Owner</div>
+              <div id="ownerCard" class="text-sm text-gray-700">Loading owner...</div>
             </div>
 
             <div class="mt-6 flex gap-3">
@@ -63,60 +68,185 @@
 
             <div class="overflow-x-auto">
               <table class="w-full border-collapse">
-                <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Date</th><th class="py-3">Procedure</th><th class="py-3">Notes</th><th class="py-3">Vet</th></tr></thead>
-                <tbody>
-                  ${(p?.procedures||[]).map(pr=>`
-                    <tr class="border-b">
-                      <td class="py-3">${pr.date}</td>
-                      <td class="py-3">${pr.procedure}</td>
-                      <td class="py-3">${pr.notes||''}</td>
-                      <td class="py-3">${pr.vet||''}</td>
-                    </tr>`).join('') || `<tr><td class="py-3" colspan="4">No procedures recorded.</td></tr>`}
+                <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Performed At</th><th class="py-3">Category</th><th class="py-3">Name</th><th class="py-3">Notes</th><th class="py-3">Medications</th><th class="py-3">Cost</th><th class="py-3">Actions</th></tr></thead>
+                <tbody id="procRows">
                 </tbody>
               </table>
+              <div class="mt-3 text-right font-semibold">Total Cost: <span id="procTotal">0</span></div>
             </div>
           </div>
         </div>`;
+
+      // Owner card render
+      (async()=>{
+        const el = document.getElementById('ownerCard');
+        let ownerName = p?.owner||''; let phone=''; let email=''; let address='';
+        if(p?.ownerId){ const o = await repoGetOwner(p.ownerId); if(o){ ownerName=o.fullName; phone=o.phone; email=o.email; address=o.address; }}
+        el.innerHTML = ownerName
+          ? `<div><b>${ownerName}</b></div><div>${phone}</div>${email?`<div>${email}</div>`:''}${address?`<div class='text-gray-600 mt-1'>${address}</div>`:''}`
+          : `<div class='text-gray-500'>No owner linked.</div>`;
+      })();
+
+      renderProcedures();
     }
 
-    function openProc(){
+    function renderProcedures(){
+      repoGetPet(id).then(p=>{
+        const list = (p?.procedures||[]);
+        const tbody = document.getElementById('procRows');
+        if(!tbody) return;
+        tbody.innerHTML = list.map((pr,idx)=>`
+          <tr class="border-b">
+            <td class="py-3">${pr.performedAt||''}</td>
+            <td class="py-3">${pr.category||''}</td>
+            <td class="py-3">${pr.name||''}</td>
+            <td class="py-3">${pr.notes||''}</td>
+            <td class="py-3">${pr.medications||''}</td>
+            <td class="py-3">${Number(pr.cost||0).toLocaleString()}</td>
+            <td class="py-3">
+              <button class="px-2 py-1 border rounded-md mr-2 text-sm" onclick="openProc(${idx})">Edit</button>
+              <button class="px-2 py-1 border rounded-md text-sm text-red-600" onclick="delProc(${idx})">Delete</button>
+            </td>
+          </tr>`).join('') || `<tr><td class="py-3" colspan="6">No procedures recorded.</td></tr>`;
+        const total = list.reduce((s,pr)=>s+Number(pr.cost||0),0);
+        document.getElementById('procTotal').textContent = total.toLocaleString();
+      });
+    }
+
+    function openProc(editIndex){
       const wrap=document.createElement('div');
       wrap.innerHTML=`
         <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
           <div class="bg-white rounded-2xl w-full max-w-xl p-6">
-            <h3 class="text-xl font-semibold mb-4">Add Procedure</h3>
+            <h3 class="text-xl font-semibold mb-4">${editIndex!=null?'Edit':'Add'} Procedure</h3>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label class="text-sm text-gray-600">Date
-                <input id="pr_date" type="date" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+              <label class="text-sm text-gray-600">Category
+                <select id="pr_category" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                  <option value=""></option>
+                  <option>Consultation & Check-up</option>
+                  <option>Vaccine & Deworming</option>
+                  <option>Laboratory Tests</option>
+                  <option>Rapid Tests</option>
+                  <option>Surgical Service</option>
+                  <option>Spaying & Castration</option>
+                </select>
               </label>
-              <label class="text-sm text-gray-600">Procedure
-                <input id="pr_name" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="e.g., Vaccination, Deworming, Surgery">
+              <label id="wrap_type" class="text-sm text-gray-600 hidden">Procedure Type
+                <select id="pr_type" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+              </label>
+              <label id="wrap_labType" class="text-sm text-gray-600 hidden">Lab Test Type
+                <select id="pr_labType" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                  <option value=""></option>
+                  <option>Complete Blood Count (CBC)</option>
+                  <option>Comprehensive Blood</option>
+                  <option>Chemistry 10 Panel</option>
+                  <option>Chemistry 24 Panel</option>
+                  <option>X-ray</option>
+                  <option>Ultrasound OB</option>
+                  <option>Ultrasound</option>
+                  <option>Incubator</option>
+                  <option>2D ECHO</option>
+                  <option>ECG</option>
+                  <option>PCR Test</option>
+                  <option>Rivalta Test</option>
+                  <option>Urinalysis</option>
+                  <option>Fecalysis</option>
+                  <option>Immunofluorescence Assay Test</option>
+                  <option>Ear Smear Test</option>
+                  <option>Oxygen Chamber</option>
+                  <option>Nebulization Treatment</option>
+                  <option>Pet iChip Standard</option>
+                  <option>Laser Therapy (6 sessions)</option>
+                </select>
+              </label>
+              <label class="text-sm text-gray-600">Performed At
+                <input id="pr_performedAt" type="date" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+              </label>
+              <label class="text-sm text-gray-600">Name
+                <input id="pr_name" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="e.g., Vaccination">
               </label>
               <label class="text-sm text-gray-600 md:col-span-2">Notes
                 <input id="pr_notes" class="w-full border border-gray-300 rounded-md p-3 mt-1">
               </label>
-              <label class="text-sm text-gray-600">Vet
-                <input id="pr_vet" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Doctor's name">
+              <label class="text-sm text-gray-600 md:col-span-2">Medications
+                <input id="pr_meds" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Comma-separated">
+              </label>
+              <label class="text-sm text-gray-600">Cost (₱)
+                <input id="pr_cost" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="0" readonly>
               </label>
             </div>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="this.closest('.fixed').remove()">Cancel</button>
-              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="saveProc()">Save</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="saveProc(${editIndex!=null?editIndex:''})">Save</button>
             </div>
           </div>
         </div>`;
       document.body.appendChild(wrap);
+      // keyboard shortcuts for save/cancel
+      function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); saveProc(editIndex); } if(e.key==='Escape'){ e.preventDefault(); document.querySelector('.fixed.inset-0')?.remove(); } }
+      wrap.addEventListener('keydown', onKey);
+      // defaults
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById('pr_performedAt').value = today;
+      const catEl = document.getElementById('pr_category');
+      const labWrap = document.getElementById('wrap_labType');
+      const labEl = document.getElementById('pr_labType');
+      const typeWrap = document.getElementById('wrap_type');
+      const typeEl = document.getElementById('pr_type');
+      function syncLabVisibility(){
+        const isLab = catEl.value === 'Laboratory Tests';
+        labWrap.classList.toggle('hidden', !isLab);
+        if(!isLab){ labEl.value=''; }
+        // If a lab type is chosen, mirror to name (still editable)
+        if(isLab && labEl.value){ document.getElementById('pr_name').value = labEl.value; }
+      }
+      catEl.addEventListener('change', syncLabVisibility);
+      labEl.addEventListener('change', ()=>{ if(labEl.value){ document.getElementById('pr_name').value = labEl.value; } });
+      function populateTypes(){
+        const cat = catEl.value;
+        const catalog = (window.PROCEDURE_CATALOG||{})[cat]||[];
+        typeWrap.classList.toggle('hidden', catalog.length===0);
+        typeEl.innerHTML = `<option value=""></option>` + catalog.map(i=>`<option>${i.name}</option>`).join('');
+      }
+      catEl.addEventListener('change', ()=>{ populateTypes(); applySelectedType(); });
+      typeEl.addEventListener('change', applySelectedType);
+      function applySelectedType(){
+        const cat = catEl.value;
+        const type = typeEl.value;
+        const catalog = (window.PROCEDURE_CATALOG||{})[cat]||[];
+        const item = catalog.find(i=>i.name===type);
+        if(item){
+          document.getElementById('pr_name').value = item.name;
+          document.getElementById('pr_cost').value = Number(item.price||0);
+          if(item.medications){ document.getElementById('pr_meds').value = item.medications; }
+          if(item.dosage){ document.getElementById('pr_notes').value = `Dosage: ${item.dosage}. ${item.directions||''}`.trim(); }
+        }
+      }
+      populateTypes();
+      document.getElementById('pr_name').focus();
+      if(editIndex!=null){
+        repoGetPet(id).then(p=>{ const pr=p.procedures[editIndex]; if(!pr) return; document.getElementById('pr_performedAt').value=pr.performedAt||today; document.getElementById('pr_name').value=pr.name||''; document.getElementById('pr_notes').value=pr.notes||''; document.getElementById('pr_meds').value=pr.medications||''; document.getElementById('pr_cost').value=Number(pr.cost||0); catEl.value=pr.category||''; populateTypes(); typeEl.value=pr.name||''; labEl.value=pr.labType||''; syncLabVisibility(); applySelectedType(); });
+      }
     }
-    async function saveProc(){
-      const date=document.getElementById('pr_date').value || new Date().toISOString().slice(0,10);
-      const procedure=document.getElementById('pr_name').value.trim();
+    async function saveProc(editIndex){
+      const performedAt=document.getElementById('pr_performedAt').value || new Date().toISOString().slice(0,10);
+      const name=document.getElementById('pr_name').value.trim();
       const notes=document.getElementById('pr_notes').value.trim();
-      const vet=document.getElementById('pr_vet').value.trim();
-      if(!procedure){alert('Procedure is required');return;}
-      await repoAddProcedure(id,{date,procedure,notes,vet});
+      const medications=document.getElementById('pr_meds').value.trim();
+      const cost=Number(document.getElementById('pr_cost').value||0);
+      const category=document.getElementById('pr_category').value;
+      const labType=(document.getElementById('pr_labType')?.value||'');
+      if(category==='Laboratory Tests' && !labType){ alert('Lab Test Type is required for Laboratory Tests'); return; }
+      if(!name){alert('Procedure name is required');return;}
+      const payload={performedAt,name,notes,medications,cost,category,labType};
+      if(editIndex!=null){ await repoUpdateProcedure(id, editIndex, payload); }
+      else { await repoAddProcedure(id,payload); }
       document.querySelector('.fixed.inset-0')?.remove();
-      renderProfile();
+      renderProcedures();
     }
+
+    async function delProc(idx){ if(confirm('Delete this procedure?')){ await repoDeleteProcedure(id, idx); renderProcedures(); } }
 
     renderProfile();
   </script>

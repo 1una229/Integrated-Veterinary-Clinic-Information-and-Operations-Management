@@ -26,9 +26,14 @@
           <h3 class="text-2xl font-semibold text-gray-800">Prescriptions</h3>
           <button id="issueBtn" class="bg-[var(--soft-teal)] text-white px-5 py-3 rounded-md hover:brightness-95 hidden">Issue Prescription</button>
         </div>
-        <table class="w-full border-collapse">
+        <table class="w-full border-collapse mb-10">
           <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Pet</th><th class="py-3">Owner</th><th class="py-3">Drug</th><th class="py-3">Dosage</th><th class="py-3">Status</th><th class="py-3">Actions</th></tr></thead>
           <tbody id="rows"></tbody>
+        </table>
+        <h4 class="text-xl font-semibold text-gray-800 mb-3">Archives</h4>
+        <table class="w-full border-collapse">
+          <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Pet</th><th class="py-3">Owner</th><th class="py-3">Drug</th><th class="py-3">Dosage</th><th class="py-3">Date</th><th class="py-3">Actions</th></tr></thead>
+          <tbody id="rowsArchive"></tbody>
         </table>
       </div>
     </main>
@@ -44,12 +49,15 @@
 
     const role=getRole();
     const rows=document.getElementById('rows');
+    const rowsArchive=document.getElementById('rowsArchive');
     const modalRoot=document.getElementById('modalRoot');
-    if(role==='admin'||role==='vet'){document.getElementById('issueBtn').classList.remove('hidden');}
+    if(role==='admin'||role==='vet'||role==='pharmacist'){document.getElementById('issueBtn').classList.remove('hidden');}
 
     async function render(){
       const list=await repoListRx();
-      rows.innerHTML=list.map(r=>`
+      const active=list.filter(r=>!r.archived);
+      const archived=list.filter(r=>r.archived);
+      rows.innerHTML=active.map(r=>`
         <tr class="border-b">
           <td class="py-3">${r.pet}</td>
           <td class="py-3">${r.owner}</td>
@@ -61,6 +69,18 @@
             ${(role==='pharmacist'||role==='admin') && !r.dispensed ? `<button class="px-3 py-2 border rounded-md text-green-700 hover:bg-green-50" onclick="dispense(${r.id})">Mark Dispensed</button>`:''}
           </td>
         </tr>`).join('');
+      if(rowsArchive){ rowsArchive.innerHTML=archived.map(r=>`
+        <tr class="border-b">
+          <td class="py-3">${r.pet}</td>
+          <td class="py-3">${r.owner}</td>
+          <td class="py-3">${r.drug}</td>
+          <td class="py-3">${r.dosage}</td>
+          <td class="py-3">${r.date||''}</td>
+          <td class="py-3">
+            <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="unarchive(${r.id})">Unarchive</button>
+            <button class="px-3 py-2 border rounded-md text-red-700 hover:bg-red-50" onclick="removeRx(${r.id})">Delete</button>
+          </td>
+        </tr>`).join('') || `<tr><td class="py-3" colspan="6">No archived prescriptions.</td></tr>`; }
     }
 
     document.getElementById('issueBtn')?.addEventListener('click', openForm);
@@ -75,6 +95,9 @@
               <select id="f_pet" class="w-full border border-gray-300 rounded-md p-3 mt-1">
                 ${pets.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
               </select>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">From Procedure (optional)
+              <select id="f_proc" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Owner
               <input id="f_owner" class="w-full border border-gray-300 rounded-md p-3 mt-1" readonly>
@@ -98,12 +121,40 @@
         </div>`;
       const petSel=document.getElementById('f_pet');
       const ownerInp=document.getElementById('f_owner');
+      const procSel=document.getElementById('f_proc');
       async function syncOwner(){ 
         const owner = await ownerForPet(Number(petSel.value));
         ownerInp.value = owner;
       }
+      async function syncProcedures(){
+        const id=Number(petSel.value);
+        const pet=await repoGetPet(id);
+        const list=(pet?.procedures||[]);
+        procSel.innerHTML = `<option value=""></option>` + list.map((pr,idx)=>`<option value="${idx}">${(pr.name||'')}${pr.performedAt?(' — '+pr.performedAt):''}</option>`).join('');
+      }
+      procSel.addEventListener('change',()=>{
+        const idx=Number(procSel.value);
+        if(Number.isFinite(idx)){
+          (async()=>{
+            const pet=await repoGetPet(Number(petSel.value));
+            const pr=(pet?.procedures||[])[idx];
+            if(pr){
+              document.getElementById('f_drug').value = pr.medications||pr.name||'';
+              document.getElementById('f_dosage').value = 'as directed';
+              document.getElementById('f_dirs').value = 'Follow vet instructions';
+            }
+          })();
+        }
+      });
       petSel.addEventListener('change', syncOwner); 
+      petSel.addEventListener('change', syncProcedures);
       syncOwner();
+      syncProcedures();
+      // keyboard save/cancel
+      const wrap=document.querySelector('.fixed.inset-0');
+      function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); saveRx(); } if(e.key==='Escape'){ e.preventDefault(); closeModal(); } }
+      wrap.addEventListener('keydown', onKey);
+      document.getElementById('f_drug').focus();
     }
     function closeModal(){ modalRoot.innerHTML=''; }
     async function saveRx(){
@@ -146,7 +197,31 @@
       doc.line(20, 110, 90, 110); doc.text('Vet Signature', 55, 116, {align:'center'});
       doc.line(120,110,190,110); doc.text('Pharmacist Signature', 155,116,{align:'center'});
       doc.save(`Prescription_${r.pet}_${r.date}.pdf`);
+
+      // After print: action menu
+      modalRoot.innerHTML=`
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-semibold mb-4">What would you like to do?</h3>
+            <div class="grid gap-3">
+              <button class="px-4 py-2 rounded-md border text-green-700 hover:bg-green-50" onclick="afterPrint('done', ${id})">Mark Done</button>
+              <button class="px-4 py-2 rounded-md border hover:bg-gray-50" onclick="afterPrint('archive', ${id})">Move to Archive</button>
+              <button class="px-4 py-2 rounded-md border text-red-700 hover:bg-red-50" onclick="afterPrint('delete', ${id})">Delete</button>
+              <button class="px-4 py-2 rounded-md border" onclick="closeModal()">Close</button>
+            </div>
+          </div>
+        </div>`;
     }
+
+    async function afterPrint(action, id){
+      if(action==='done'){ await repoDispenseRx(id); }
+      if(action==='archive'){ await repoArchiveRx(id, true); }
+      if(action==='delete'){ if(confirm('Delete this prescription?')) await repoDeleteRx(id); }
+      closeModal(); render();
+    }
+
+    async function unarchive(id){ await repoArchiveRx(id, false); render(); }
+    async function removeRx(id){ if(confirm('Delete this prescription?')){ await repoDeleteRx(id); render(); } }
 
     render();
   </script>

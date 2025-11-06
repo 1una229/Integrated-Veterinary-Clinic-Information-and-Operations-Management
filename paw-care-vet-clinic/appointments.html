@@ -42,10 +42,12 @@
           <table class="w-full border-collapse">
             <thead>
               <tr class="text-left text-gray-600 border-b">
+                <th class="py-3">Code</th>
                 <th class="py-3">Pet</th>
                 <th class="py-3">Owner</th>
                 <th class="py-3">Date</th>
                 <th class="py-3">Time</th>
+                <th class="py-3">Vet</th>
                 <th class="py-3">Status</th>
                 <th class="py-3">Actions</th>
               </tr>
@@ -73,22 +75,28 @@
 
     async function render(){
       const appts=await repoListAppts();
+      const user = getUserName();
       const apptsWithNames = await Promise.all(appts.map(async a => {
         const pet = await petName(a.petId);
         return { ...a, petName: pet };
       }));
-      rows.innerHTML=apptsWithNames.map(a=>`
+      let filtered = apptsWithNames;
+      if(role==='vet'){ filtered = apptsWithNames.filter(a=> (a.vet||'')===user); }
+      if(role==='receptionist'){ filtered = apptsWithNames.filter(a=> !a.vet); }
+      rows.innerHTML=filtered.map(a=>`
         <tr class="border-b">
+          <td class="py-3">${a.code||''}</td>
           <td class="py-3">${a.petName}</td>
           <td class="py-3">${a.owner}</td>
           <td class="py-3">${a.date}</td>
           <td class="py-3">${a.time}</td>
+          <td class="py-3">${a.vet||''}</td>
           <td class="py-3">${a.status}</td>
           <td class="py-3">
-            ${(role==='vet'||role==='admin') && a.status!=='Approved by Vet' && a.status!=='Done'
+            ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status!=='Approved by Vet' && a.status!=='Done'
               ? `<button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="approve(${a.id})">Approve</button>` : ''}
 
-            ${(role==='vet'||role==='admin') && a.status==='Approved by Vet'
+            ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status==='Approved by Vet'
               ? `<button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="markDone(${a.id})">Mark Done</button>` : ''}
 
             ${(role==='vet'||role==='admin'||role==='receptionist')
@@ -105,6 +113,8 @@
 
     async function openForm(){
       const pets=await repoListPets();
+      const users=await repoListUsers();
+      const vets=(users||[]).filter(u=> (u.role||'').toLowerCase()==='vet');
       modalRoot.innerHTML=`
         <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
           <div class="bg-white rounded-2xl w-full max-w-xl p-6">
@@ -125,6 +135,12 @@
                 <input id="f_time" type="time" class="w-full border border-gray-300 rounded-md p-3 mt-1">
               </label>
             </div>
+            <label class="text-sm text-gray-600 block mb-3">Assign Vet
+              <select id="f_vet" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                <option value=""></option>
+                ${vets.map(v=>`<option>${v.name||v.fullName||v.username||''}</option>`).join('')}
+              </select>
+            </label>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
               <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="saveAppt()">Save</button>
@@ -139,6 +155,9 @@
       }
       petSel.addEventListener('change', syncOwner); 
       syncOwner();
+      // keyboard submit
+      const wrap=document.querySelector('.fixed.inset-0');
+      wrap.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveAppt(); } if(e.key==='Escape'){ e.preventDefault(); closeModal(); }});
     }
     function closeModal(){ modalRoot.innerHTML=''; }
     async function saveAppt(){
@@ -147,8 +166,9 @@
       const owner = await ownerForPet(petId);
       const date=document.getElementById('f_date').value;
       const time=document.getElementById('f_time').value;
+      const vet=document.getElementById('f_vet').value;
       if(!date||!time){alert('Date and time required');return;}
-      await repoCreateAppt({petId,pet,owner,date,time,vet:'',status:'Pending'});
+      await repoCreateAppt({petId,pet,owner,date,time,vet,status:'Pending'});
       closeModal(); render();
     }
 
