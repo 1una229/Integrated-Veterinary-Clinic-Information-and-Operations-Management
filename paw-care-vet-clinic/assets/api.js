@@ -34,10 +34,24 @@ window.Api = {
     update: (p)=>  ApiHttp(`/pets/${p.id}`,        { method:"PUT",  body:p, token: Api.token() }),
     remove: (id)=> ApiHttp(`/pets/${id}`,          { method:"DELETE", token: Api.token() }),
     uploadPhoto: (id, file)=>{ const fd=new FormData(); fd.append("file", file); return ApiHttp(`/pets/${id}/photo`, { method:"POST", body:fd, token: Api.token() }); },
-    addProcedure: (id, proc)=> ApiHttp(`/pets/${id}/procedures`, { method:"POST", body:proc, token: Api.token() })
+    addProcedure: (id, proc)=>{
+      const payload = window.USE_API ? {
+        date: proc.performedAt || proc.date,
+        procedure: proc.name || proc.procedure,
+        notes: proc.notes,
+        vet: (typeof getUserName==='function' ? getUserName() : undefined),
+        category: proc.category,
+        labType: proc.labType,
+        medications: proc.medications,
+        cost: proc.cost
+      } : proc;
+      return ApiHttp(`/pets/${id}/procedures`, { method:"POST", body:payload, token: Api.token() });
+    }
   },
   appts: {
     list:    ()    => ApiHttp("/appointments", { token: Api.token() }),
+    listForVet: (name) => ApiHttp(`/appointments?vet=${encodeURIComponent(name)}`, { token: Api.token() }),
+    listUnassigned: () => ApiHttp(`/appointments?unassigned=true`, { token: Api.token() }),
     get:     (id)  => ApiHttp(`/appointments/${id}`, { token: Api.token() }),
     create:  (a)   => ApiHttp("/appointments", { method:"POST", body:a, token: Api.token() }),
     update:  (a)   => ApiHttp(`/appointments/${a.id}`, { method:"PUT", body:a, token: Api.token() }),

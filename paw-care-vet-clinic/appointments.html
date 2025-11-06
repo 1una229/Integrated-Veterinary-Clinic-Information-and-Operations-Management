@@ -62,6 +62,7 @@
   <!-- Modal root -->
   <div id="modalRoot"></div>
 
+  <script>window.USE_API=true; window.API_BASE="http://localhost:8080/api";</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
   <script>
@@ -74,15 +75,24 @@
     if(role==='admin'||role==='receptionist'){document.getElementById('addBtn').classList.remove('hidden');}
 
     async function render(){
-      const appts=await repoListAppts();
+      let appts = [];
+      if(window.USE_API){
+        if(role==='vet'){ appts = await Api.appts.listForVet(getUserName()); }
+        else if(role==='receptionist'){ appts = await Api.appts.listUnassigned(); }
+        else { appts = await Api.appts.list(); }
+      } else {
+        appts = await repoListAppts();
+      }
       const user = getUserName();
       const apptsWithNames = await Promise.all(appts.map(async a => {
         const pet = await petName(a.petId);
         return { ...a, petName: pet };
       }));
       let filtered = apptsWithNames;
-      if(role==='vet'){ filtered = apptsWithNames.filter(a=> (a.vet||'')===user); }
-      if(role==='receptionist'){ filtered = apptsWithNames.filter(a=> !a.vet); }
+      if(!window.USE_API){
+        if(role==='vet'){ filtered = apptsWithNames.filter(a=> (a.vet||'')===user); }
+        if(role==='receptionist'){ filtered = apptsWithNames.filter(a=> !a.vet); }
+      }
       rows.innerHTML=filtered.map(a=>`
         <tr class="border-b">
           <td class="py-3">${a.code||''}</td>

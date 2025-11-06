@@ -86,7 +86,17 @@ public class ApiControllers {
 
     /* --------- Appointments --------- */
     @GetMapping("/appointments")
-    public List<Appointment> listAppts(){ return pawCareService.getAllAppointments(); }
+    public List<Appointment> listAppts(@RequestParam(required=false) String vet,
+                                       @RequestParam(required=false) Boolean unassigned){
+        List<Appointment> all = pawCareService.getAllAppointments();
+        if (vet != null && !vet.isBlank()) {
+            all = all.stream().filter(a -> vet.equalsIgnoreCase(Objects.toString(a.getVet(), ""))).toList();
+        }
+        if (Boolean.TRUE.equals(unassigned)) {
+            all = all.stream().filter(a -> a.getVet()==null || a.getVet().isBlank()).toList();
+        }
+        return all;
+    }
 
     @PostMapping("/appointments")
     public Appointment createAppt(@RequestBody Appointment a){ return pawCareService.saveAppointment(a); }
@@ -133,6 +143,26 @@ public class ApiControllers {
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /* --------- Users --------- */
+    @GetMapping("/users")
+    public List<User> listUsers(){ return pawCareService.getAllUsers(); }
+
+    @PostMapping("/users")
+    public User createUser(@RequestBody User u){ return pawCareService.saveUser(u); }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable long id, @RequestBody User u){
+        if (pawCareService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(pawCareService.updateUser(id, u));
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable long id){
+        if (pawCareService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
+        pawCareService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 
     /* --------- Reports & Ops --------- */

@@ -39,6 +39,7 @@
 
   <div id="modalRoot"></div>
 
+  <script>window.USE_API=true; window.API_BASE="http://localhost:8080/api";</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
   <script>
@@ -52,8 +53,8 @@
 
     async function render(){
       try{
-        const term=(q.value||'').toLowerCase();
-        const pets=await repoListPets();
+      const term=(q.value||'').toLowerCase();
+      const pets=await repoListPets();
         const safe = Array.isArray(pets) ? pets : [];
         const filtered = safe.filter(p=>{
           try{ return JSON.stringify(p).toLowerCase().includes(term); }catch{ return false; }
@@ -64,17 +65,17 @@
           return { ...p, _ownerName: ownerName };
         }));
         rows.innerHTML=withOwnerNames.map(p=>`
-          <tr class="border-b">
-            <td class="py-3">${p.name||''}</td>
-            <td class="py-3">${p.species||''}</td>
-            <td class="py-3">${p.breed||''}</td>
+        <tr class="border-b">
+          <td class="py-3">${p.name||''}</td>
+          <td class="py-3">${p.species||''}</td>
+          <td class="py-3">${p.breed||''}</td>
             <td class="py-3">${p._ownerName||''}</td>
-            <td class="py-3">
-              <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="viewPet(${p.id})">View</button>
-              <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="openForm(${p.id})">Edit</button>
-              <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="delPet(${p.id})">Delete</button>
-            </td>
-          </tr>`).join('');
+          <td class="py-3">
+            <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="viewPet(${p.id})">View</button>
+            <button class="px-3 py-2 border rounded-md mr-2 hover:bg-gray-50" onclick="openForm(${p.id})">Edit</button>
+            <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="delPet(${p.id})">Delete</button>
+          </td>
+        </tr>`).join('');
       }catch(err){ console.error(err); alert('Render error: '+err.message); }
     }
     function viewPet(id){ location.href=`pet-profile.html?id=${id}`; }
@@ -82,9 +83,9 @@
 
     async function openForm(id){
       try{
-        const editing = id ? await repoGetPet(id) : null;
-        let currentPhoto = editing?.photo || null;
-        lastRawFile = null;
+      const editing = id ? await repoGetPet(id) : null;
+      let currentPhoto = editing?.photo || null;
+      lastRawFile = null;
 
       modalRoot.innerHTML=`
         <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">

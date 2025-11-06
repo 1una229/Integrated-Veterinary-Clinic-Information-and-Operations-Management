@@ -2,6 +2,7 @@ package com.pawcare.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "procedures")
@@ -18,6 +19,14 @@ public class Procedure {
 
     private String notes;
     private String vet;
+
+    // Extra fields to align with frontend automation
+    private String category;
+    private String labType;
+    private String medications;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal cost;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id")
@@ -48,6 +57,18 @@ public class Procedure {
 
     public String getVet() { return vet; }
     public void setVet(String vet) { this.vet = vet; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getLabType() { return labType; }
+    public void setLabType(String labType) { this.labType = labType; }
+
+    public String getMedications() { return medications; }
+    public void setMedications(String medications) { this.medications = medications; }
+
+    public BigDecimal getCost() { return cost; }
+    public void setCost(BigDecimal cost) { this.cost = cost; }
 
     public Pet getPet() { return pet; }
     public void setPet(Pet pet) { this.pet = pet; }
