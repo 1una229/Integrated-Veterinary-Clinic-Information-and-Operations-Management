@@ -1,5 +1,5 @@
-// Toggle when your backend is ready:
-window.USE_API = window.USE_API ?? false;
+// Force OFFLINE mode for stability right now. Re-enable backend later by setting this to true.
+window.USE_API = false;
 window.API_BASE = window.API_BASE ?? "http://localhost:8080/api";
 
 window.ApiHttp = async function http(path, { method="GET", headers={}, body, timeoutMs=12000, token } = {}){
